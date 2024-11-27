@@ -6,6 +6,7 @@ import os
 import wandb
 import hydra
 from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 _steps = [
     "download",
@@ -23,6 +24,8 @@ _steps = [
 # This automatically reads in the configuration
 @hydra.main(config_name='config')
 def go(config: DictConfig):
+    print("Loaded Configuration:")
+    print(OmegaConf.to_yaml(config))
 
     # Setup the wandb experiment. All runs will be grouped under this name
     os.environ["WANDB_PROJECT"] = config["main"]["project_name"]
@@ -50,22 +53,35 @@ def go(config: DictConfig):
                 },
             )
 
-        if "basic_cleaning" in active_steps:
-            ##################
-            # Implement here #
-            ##################
-            pass
-
         if "data_check" in active_steps:
-            ##################
-            # Implement here #
-            ##################
-            pass
+            _ = mlflow.run(
+            os.path.join(hydra.utils.get_original_cwd(), "src", "basic_cleaning"),
+            "main",
+            parameters={  
+                    "csv": "nyc_airbnb/clean_data.csv:latest",
+                    "ref": "nyc_airbnb/clean_data.csv:reference",
+                    "kl_threshold": config['data_check']['kl_threshold'],
+                    "min_price": config['etl']['min_price'],
+                    "max_price": config['etl']['max_price'],
+                    "input_artifact": config['data_check']['input_artifact'],
+                    "output_artifact": config['data_check']['output_artifact'],
+                    "output_type": config['data_check']['output_type'],
+                    "output_description": config['data_check']['output_description'],
+                },
+            )  
 
         if "data_split" in active_steps:
-            ##################
-            # Implement here #
-            ##################
+            _ = mlflow.run(
+            f"{config['main']['components_repository']}/train_val_test_split",
+            "main",
+            parameters={
+                    "input": "clean_sample.csv:latest",
+                    "test_size": config["modeling"]["test_size"],
+                    "random_seed": config["modeling"]["random_seed"],
+                    "stratify_by": config["modeling"]["stratify_by"],
+            },
+        )     
+
             pass
 
         if "train_random_forest" in active_steps:
@@ -77,20 +93,36 @@ def go(config: DictConfig):
 
             # NOTE: use the rf_config we just created as the rf_config parameter for the train_random_forest
             # step
+        if "train_random_forest" in steps_to_execute:
+            
+            # NOTE: we need to serialize the random forest configuration into JSON
+            rf_config = os.path.abspath("rf_config.json")
+            #with open(rf_config, "w+") as fp:
+            #    json.dump(dict(config["pipeline"].items()), fp)
+            
+            with open(rf_config, "w+") as fp:
+                fp.write(OmegaConf.to_yaml(config["pipeline"]))
+    
+            _ = mlflow.run(
+                    os.path.join(root_path, "components", "train_random_forest"),
+                    "main",
+                    parameters={
+                        "trainval_artifact": "nyc_airbnb/trainval_data.csv:latest",
+                        "val_size": config['data']['val_size'],
+                        "random_state": config['main']['random_state'],
+                        "stratify": config['data']['stratify'],
+                        "rf_config": rf_config,
+                        "output_artifact": config['pipeline']['export_artifact'],
+                    },
+            )  
+        pass
 
-            ##################
-            # Implement here #
-            ##################
+        #if "test_regression_model" in active_steps:
+        
 
-            pass
 
-        if "test_regression_model" in active_steps:
 
-            ##################
-            # Implement here #
-            ##################
-
-            pass
+        pass 
 
 
 if __name__ == "__main__":

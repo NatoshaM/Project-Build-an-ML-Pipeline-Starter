@@ -70,11 +70,7 @@ def go(args):
 
     # Then fit it to the X_train, y_train data
     logger.info("Fitting")
-
-    ######################################
-    # Fit the pipeline sk_pipe by calling the .fit method on X_train and y_train
-    # YOUR CODE HERE
-    ######################################
+    sk_pipe.fit(X_train, y_train)
 
     # Compute r2 and MAE
     logger.info("Scoring")
@@ -97,7 +93,8 @@ def go(args):
     # HINT: use mlflow.sklearn.save_model
     signature = mlflow.models.infer_signature(X_val, y_pred)
     mlflow.sklearn.save_model(
-        # YOUR CODE HERE
+        sk_pipe,
+        path="random_forest_dir",
         signature = signature,
         input_example = X_train.iloc[:5]
     )
@@ -120,6 +117,7 @@ def go(args):
     ######################################
     # Here we save variable r_squared under the "r2" key
     run.summary['r2'] = r_squared
+    run.summary['mae'] = mae
     # Now save the variable mae under the key "mae".
     # YOUR CODE HERE
     ######################################
@@ -164,7 +162,8 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
     # 1 - A SimpleImputer(strategy="most_frequent") to impute missing values
     # 2 - A OneHotEncoder() step to encode the variable
     non_ordinal_categorical_preproc = make_pipeline(
-        # YOUR CODE HERE
+        SimpleImputer(strategy="most_frequent"),
+        OneHotEncoder()
     )
     ######################################
 
@@ -227,7 +226,8 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
 
     sk_pipe = Pipeline(
         steps =[
-        # YOUR CODE HERE
+        ("preprocessor", preprocessor),
+        ("random_forest", random_forest)
         ]
     )
 
@@ -288,6 +288,38 @@ if __name__ == "__main__":
         required=True,
     )
 
+    parser.add_argument(
+        "--input_artifact",
+        type=str,
+        help="The input artifact to read in"
+    )
+
+    parser.add_argument(
+        "--output_type",
+        type=str,
+        help="The type of the output artifact"
+    )
+
+    parser.add_argument(
+        "--output_description",
+        type=str,
+        help="Description for the output artifact"
+    )
+
+    parser.add_argument(
+        "--min_price",
+        type=float,
+        help="Minimum price to filter the dataset",
+        required=True
+    )
+
+    parser.add_argument(
+        "--max_price",
+        type=float,
+        help="Maximum price to filter the dataset",
+        required=True
+    )
+    
     args = parser.parse_args()
 
     go(args)

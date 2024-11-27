@@ -11,6 +11,10 @@ etl:
   max_price: 350  # dollars
 data_check:
   kl_threshold: 0.2
+  input_artifact: "sample.csv:latest"  
+  output_artifact: "clean_sample.csv"  
+  output_type: "clean_sample"  
+  output_description: "Data with outliers and null values removed"
 modeling:
   # Fraction of data to use for test (the remaining will be used for train and validation)
   test_size: 0.2
